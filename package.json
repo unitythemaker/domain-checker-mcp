@@ -1,7 +1,7 @@
 {
   "name": "domain-checker-mcp",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for checking domain availability using RDAP and WHOIS with support for bulk checking multiple domains in parallel",
   "author": "",
   "license": "MIT",

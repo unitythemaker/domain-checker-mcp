@@ -9,6 +9,10 @@ An MCP (Model Context Protocol) server that checks domain availability using RDA
 - Prioritizes RDAP for domain lookups
 - Falls back to WHOIS when RDAP is unavailable
 - Configurable parallel workers (default: 4)
+- Retry mechanism with exponential backoff for rate-limited responses
+- Enhanced domain status detection (available, taken, unknown, rate_limited)
+- Extract domain information (registrar, expiration date, days until expiration)
+- Null registrationData detection for better availability accuracy
 
 ## MCP Configuration
 
@@ -94,8 +98,16 @@ Single domain check returns:
 {
   "domain": "example.com",
   "available": false,
+  "status": "taken",
   "method": "rdap",
-  "registrationData": { ... }
+  "registrationData": { ... },
+  "domainInfo": {
+    "registrar": "Example Registrar Inc.",
+    "expirationDate": "2025-12-31T23:59:59Z",
+    "daysUntilExpiration": 365,
+    "creationDate": "2020-01-01T00:00:00Z",
+    "lastUpdated": "2024-01-15T12:00:00Z"
+  }
 }
 ```
 
@@ -104,8 +116,10 @@ Batch check returns:
 {
   "total": 5,
   "available": 2,
-  "taken": 3,
+  "taken": 2,
   "errors": 0,
+  "rateLimited": 1,
+  "unknown": 0,
   "results": [...]
 }
 ```
@@ -118,6 +132,8 @@ Name with extensions check returns:
   "available": 1,
   "taken": 2,
   "errors": 0,
+  "rateLimited": 0,
+  "unknown": 0,
   "results": [...]
 }
 ```
@@ -129,14 +145,18 @@ Multiple names with extensions returns:
   "totalExtensions": 3,
   "totalChecks": 6,
   "availableTotal": 2,
-  "takenTotal": 4,
+  "takenTotal": 3,
   "errorsTotal": 0,
+  "rateLimitedTotal": 1,
+  "unknownTotal": 0,
   "resultsByName": {
     "example": {
       "total": 3,
       "available": 1,
       "taken": 2,
       "errors": 0,
+      "rateLimited": 0,
+      "unknown": 0,
       "domains": [...]
     },
     ...

@@ -172,8 +172,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const summary = {
         total: results.length,
         available: results.filter(r => r.available).length,
-        taken: results.filter(r => !r.available && !r.error).length,
+        taken: results.filter(r => r.status === 'taken').length,
         errors: results.filter(r => r.error).length,
+        rateLimited: results.filter(r => r.status === 'rate_limited').length,
+        unknown: results.filter(r => r.status === 'unknown').length,
         results,
       }
 
@@ -216,8 +218,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         name: domainName,
         total: results.length,
         available: results.filter(r => r.available).length,
-        taken: results.filter(r => !r.available && !r.error).length,
+        taken: results.filter(r => r.status === 'taken').length,
         errors: results.filter(r => r.error).length,
+        rateLimited: results.filter(r => r.status === 'rate_limited').length,
+        unknown: results.filter(r => r.status === 'unknown').length,
         results,
       }
 
@@ -268,8 +272,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         groupedResults[name] = {
           total: nameResults.length,
           available: nameResults.filter(r => r.available).length,
-          taken: nameResults.filter(r => !r.available && !r.error).length,
+          taken: nameResults.filter(r => r.status === 'taken').length,
           errors: nameResults.filter(r => r.error).length,
+          rateLimited: nameResults.filter(r => r.status === 'rate_limited').length,
+          unknown: nameResults.filter(r => r.status === 'unknown').length,
           domains: nameResults,
         }
       }
@@ -279,8 +285,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         totalExtensions: extensions.length,
         totalChecks: results.length,
         availableTotal: results.filter(r => r.available).length,
-        takenTotal: results.filter(r => !r.available && !r.error).length,
+        takenTotal: results.filter(r => r.status === 'taken').length,
         errorsTotal: results.filter(r => r.error).length,
+        rateLimitedTotal: results.filter(r => r.status === 'rate_limited').length,
+        unknownTotal: results.filter(r => r.status === 'unknown').length,
         resultsByName: groupedResults,
       }
 
