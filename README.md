@@ -13,6 +13,7 @@ An MCP (Model Context Protocol) server that checks domain availability using RDA
 - Enhanced domain status detection (available, taken, unknown, rate_limited)
 - Extract domain information (registrar, expiration date, days until expiration)
 - Null registrationData detection for better availability accuracy
+- Efficient response mode - raw RDAP/WHOIS data excluded by default for faster responses
 
 ## MCP Configuration
 
@@ -71,25 +72,32 @@ pnpm start
 
 ### Available Tools
 
+All tools support an optional `includeRawResponse` parameter (boolean, default: false) to control whether raw RDAP/WHOIS data is included in responses. Raw responses are automatically included for suspicious cases (unknown status, rate limits, errors).
+
 1. **check_domain** - Check if a single domain is available
-   - Input: `domain` (string) - The domain name to check
+   - Input: 
+     - `domain` (string) - The domain name to check
+     - `includeRawResponse` (boolean, optional) - Include raw response data (default: false)
 
 2. **check_domains_batch** - Check multiple domains in parallel
    - Input:
      - `domains` (string[]) - Array of domain names to check
      - `concurrency` (number, optional) - Number of parallel workers (1-10, default: 4)
+     - `includeRawResponse` (boolean, optional) - Include raw response data (default: false)
 
 3. **check_name_extensions** - Check a single name with multiple extensions
    - Input:
      - `name` (string) - The domain name without extension (e.g., "example")
      - `extensions` (string[]) - Array of extensions to check (e.g., ["com", "net", "org"])
      - `concurrency` (number, optional) - Number of parallel workers (1-10, default: 4)
+     - `includeRawResponse` (boolean, optional) - Include raw response data (default: false)
 
 4. **check_names_extensions** - Check multiple names with multiple extensions
    - Input:
      - `names` (string[]) - Array of domain names without extensions
      - `extensions` (string[]) - Array of extensions to check for each name
      - `concurrency` (number, optional) - Number of parallel workers (1-10, default: 4)
+     - `includeRawResponse` (boolean, optional) - Include raw response data (default: false)
 
 ### Response Format
 

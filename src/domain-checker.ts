@@ -293,10 +293,13 @@ async function checkDomainWithWhois(domain: string): Promise<DomainCheckResult> 
 
     const isAvailable = availablePatterns.some(pattern => lowerWhois.includes(pattern))
 
+    // Special check for responses that start with "Domain not found" before the terms
+    const startsWithNotFound = whoisText.trim().toLowerCase().startsWith('domain not found')
+
     // Also check if response is very short (likely a "not found" template)
     const isSuspiciouslyShort = whoisText.trim().length < 100 && !lowerWhois.includes('registrar')
 
-    if (isAvailable || isSuspiciouslyShort) {
+    if (isAvailable || isSuspiciouslyShort || startsWithNotFound) {
       return {
         domain,
         available: true,
@@ -319,10 +322,11 @@ async function checkDomainWithWhois(domain: string): Promise<DomainCheckResult> 
     }
   }
   catch (error) {
-    const errorMessage = error instanceof Error ? error.message.toLowerCase() : ''
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const lowerErrorMessage = errorMessage.toLowerCase()
 
     // Check for rate limiting in error
-    if (errorMessage.includes('rate limit') || errorMessage.includes('too many requests')) {
+    if (lowerErrorMessage.includes('rate limit') || lowerErrorMessage.includes('too many requests')) {
       return {
         domain,
         available: false,
@@ -332,12 +336,23 @@ async function checkDomainWithWhois(domain: string): Promise<DomainCheckResult> 
       }
     }
 
+    // If error is empty string or just whitespace, it's suspicious
+    if (!errorMessage.trim()) {
+      return {
+        domain,
+        available: false,
+        status: 'unknown',
+        method: 'whois',
+        error: 'Empty error response from WHOIS',
+      }
+    }
+
     return {
       domain,
       available: false,
       status: 'unknown',
       method: 'whois',
-      error: error instanceof Error ? error.message : 'Unknown whois error',
+      error: errorMessage,
     }
   }
 }

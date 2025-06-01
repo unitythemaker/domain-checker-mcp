@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import type { DomainCheckResult } from './domain-checker.js'
 import process from 'node:process'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
@@ -9,6 +10,28 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js'
 import { checkDomain, checkDomainsParallel } from './domain-checker.js'
+
+// Helper function to filter registrationData based on includeRawResponse option
+function filterRegistrationData(result: DomainCheckResult, includeRawResponse: boolean): DomainCheckResult {
+  // Always include raw response if:
+  // 1. includeRawResponse is true
+  // 2. Status is unknown or rate_limited (suspicious cases)
+  // 3. There's an error (but not empty string errors)
+  // 4. Available domain with errorCode OTHER than certain 404 (suspicious availability)
+  const shouldIncludeRaw = includeRawResponse
+    || result.status === 'unknown'
+    || result.status === 'rate_limited'
+    || (result.error !== undefined && result.error !== '')
+    || (result.available && result.registrationData?.errorCode && result.registrationData.errorCode !== 404)
+
+  if (!shouldIncludeRaw) {
+    // Remove registrationData for efficiency
+    const { registrationData, ...filteredResult } = result
+    return filteredResult
+  }
+
+  return result
+}
 
 const server = new Server(
   {
@@ -36,6 +59,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               type: 'string',
               description: 'The domain name to check (e.g., example.com)',
             },
+            includeRawResponse: {
+              type: 'boolean',
+              description: 'Include raw RDAP/WHOIS response data (default: false)',
+              default: false,
+            },
           },
           required: ['domain'],
         },
@@ -59,6 +87,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               minimum: 1,
               maximum: 10,
               default: 4,
+            },
+            includeRawResponse: {
+              type: 'boolean',
+              description: 'Include raw RDAP/WHOIS response data (default: false)',
+              default: false,
             },
           },
           required: ['domains'],
@@ -87,6 +120,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               minimum: 1,
               maximum: 10,
               default: 4,
+            },
+            includeRawResponse: {
+              type: 'boolean',
+              description: 'Include raw RDAP/WHOIS response data (default: false)',
+              default: false,
             },
           },
           required: ['name', 'extensions'],
@@ -119,6 +157,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
               maximum: 10,
               default: 4,
             },
+            includeRawResponse: {
+              type: 'boolean',
+              description: 'Include raw RDAP/WHOIS response data (default: false)',
+              default: false,
+            },
           },
           required: ['names', 'extensions'],
         },
@@ -133,7 +176,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   try {
     if (name === 'check_domain') {
-      const { domain } = args as { domain: string }
+      const { domain, includeRawResponse = false } = args as { domain: string, includeRawResponse?: boolean }
 
       if (!domain || typeof domain !== 'string') {
         throw new McpError(
@@ -143,20 +186,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const result = await checkDomain(domain)
+      const filteredResult = filterRegistrationData(result, includeRawResponse)
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(result, null, 2),
+            text: JSON.stringify(filteredResult, null, 2),
           },
         ],
       }
     }
     else if (name === 'check_domains_batch') {
-      const { domains, concurrency = 4 } = args as {
+      const { domains, concurrency = 4, includeRawResponse = false } = args as {
         domains: string[]
         concurrency?: number
+        includeRawResponse?: boolean
       }
 
       if (!Array.isArray(domains) || domains.length === 0) {
@@ -167,16 +212,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const results = await checkDomainsParallel(domains, concurrency)
+      const filteredResults = results.map(r => filterRegistrationData(r, includeRawResponse))
 
       // Format results for better readability
       const summary = {
-        total: results.length,
-        available: results.filter(r => r.available).length,
-        taken: results.filter(r => r.status === 'taken').length,
-        errors: results.filter(r => r.error).length,
-        rateLimited: results.filter(r => r.status === 'rate_limited').length,
-        unknown: results.filter(r => r.status === 'unknown').length,
-        results,
+        total: filteredResults.length,
+        available: filteredResults.filter(r => r.available).length,
+        taken: filteredResults.filter(r => r.status === 'taken').length,
+        errors: filteredResults.filter(r => r.error).length,
+        rateLimited: filteredResults.filter(r => r.status === 'rate_limited').length,
+        unknown: filteredResults.filter(r => r.status === 'unknown').length,
+        results: filteredResults,
       }
 
       return {
@@ -189,10 +235,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     }
     else if (name === 'check_name_extensions') {
-      const { name: domainName, extensions, concurrency = 4 } = args as {
+      const { name: domainName, extensions, concurrency = 4, includeRawResponse = false } = args as {
         name: string
         extensions: string[]
         concurrency?: number
+        includeRawResponse?: boolean
       }
 
       if (!domainName || typeof domainName !== 'string') {
@@ -212,17 +259,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // Generate full domain names
       const domains = extensions.map(ext => `${domainName}.${ext}`)
       const results = await checkDomainsParallel(domains, concurrency)
+      const filteredResults = results.map(r => filterRegistrationData(r, includeRawResponse))
 
       // Format results grouped by name
       const summary = {
         name: domainName,
-        total: results.length,
-        available: results.filter(r => r.available).length,
-        taken: results.filter(r => r.status === 'taken').length,
-        errors: results.filter(r => r.error).length,
-        rateLimited: results.filter(r => r.status === 'rate_limited').length,
-        unknown: results.filter(r => r.status === 'unknown').length,
-        results,
+        total: filteredResults.length,
+        available: filteredResults.filter(r => r.available).length,
+        taken: filteredResults.filter(r => r.status === 'taken').length,
+        errors: filteredResults.filter(r => r.error).length,
+        rateLimited: filteredResults.filter(r => r.status === 'rate_limited').length,
+        unknown: filteredResults.filter(r => r.status === 'unknown').length,
+        results: filteredResults,
       }
 
       return {
@@ -235,10 +283,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
     }
     else if (name === 'check_names_extensions') {
-      const { names, extensions, concurrency = 4 } = args as {
+      const { names, extensions, concurrency = 4, includeRawResponse = false } = args as {
         names: string[]
         extensions: string[]
         concurrency?: number
+        includeRawResponse?: boolean
       }
 
       if (!Array.isArray(names) || names.length === 0) {
@@ -264,11 +313,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       const results = await checkDomainsParallel(domains, concurrency)
+      const filteredResults = results.map(r => filterRegistrationData(r, includeRawResponse))
 
       // Group results by name
       const groupedResults: Record<string, any> = {}
       for (const name of names) {
-        const nameResults = results.filter(r => r.domain.startsWith(`${name}.`))
+        const nameResults = filteredResults.filter(r => r.domain.startsWith(`${name}.`))
         groupedResults[name] = {
           total: nameResults.length,
           available: nameResults.filter(r => r.available).length,
@@ -283,12 +333,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const summary = {
         totalNames: names.length,
         totalExtensions: extensions.length,
-        totalChecks: results.length,
-        availableTotal: results.filter(r => r.available).length,
-        takenTotal: results.filter(r => r.status === 'taken').length,
-        errorsTotal: results.filter(r => r.error).length,
-        rateLimitedTotal: results.filter(r => r.status === 'rate_limited').length,
-        unknownTotal: results.filter(r => r.status === 'unknown').length,
+        totalChecks: filteredResults.length,
+        availableTotal: filteredResults.filter(r => r.available).length,
+        takenTotal: filteredResults.filter(r => r.status === 'taken').length,
+        errorsTotal: filteredResults.filter(r => r.error).length,
+        rateLimitedTotal: filteredResults.filter(r => r.status === 'rate_limited').length,
+        unknownTotal: filteredResults.filter(r => r.status === 'unknown').length,
         resultsByName: groupedResults,
       }
 
