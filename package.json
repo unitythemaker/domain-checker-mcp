@@ -1,0 +1,44 @@
+{
+  "name": "domain-checker-mcp",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "MCP server for checking domain availability using RDAP and WHOIS",
+  "author": "",
+  "license": "ISC",
+  "keywords": [
+    "mcp",
+    "domain",
+    "checker",
+    "rdap",
+    "whois"
+  ],
+  "main": "dist/index.js",
+  "bin": {
+    "domain-checker-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "node-rdap": "^0.4.2",
+    "p-limit": "^6.2.0",
+    "whoisit": "^0.0.5"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^4.13.2",
+    "@types/node": "^22.15.29",
+    "eslint": "^9.27.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "unrs-resolver"
+    ]
+  }
+}
