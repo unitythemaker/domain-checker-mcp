@@ -1,0 +1,13 @@
+src/
+node_modules/
+.git/
+.gitignore
+.vscode/
+*.log
+.env
+.env.local
+*.tsbuildinfo
+tsconfig.json
+eslint.config.js
+pnpm-lock.yaml
+.github/

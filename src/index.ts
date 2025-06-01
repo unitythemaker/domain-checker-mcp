@@ -63,6 +63,65 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           required: ['domains'],
         },
       },
+      {
+        name: 'check_name_extensions',
+        description: 'Check availability of a single name with multiple extensions',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'The domain name without extension (e.g., "example")',
+            },
+            extensions: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Array of extensions to check (e.g., ["com", "net", "org"])',
+            },
+            concurrency: {
+              type: 'number',
+              description: 'Number of parallel workers (default: 4)',
+              minimum: 1,
+              maximum: 10,
+              default: 4,
+            },
+          },
+          required: ['name', 'extensions'],
+        },
+      },
+      {
+        name: 'check_names_extensions',
+        description: 'Check availability of multiple names with multiple extensions',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            names: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Array of domain names without extensions',
+            },
+            extensions: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Array of extensions to check for each name',
+            },
+            concurrency: {
+              type: 'number',
+              description: 'Number of parallel workers (default: 4)',
+              minimum: 1,
+              maximum: 10,
+              default: 4,
+            },
+          },
+          required: ['names', 'extensions'],
+        },
+      },
     ],
   }
 })
@@ -115,6 +174,113 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         taken: results.filter(r => !r.available && !r.error).length,
         errors: results.filter(r => r.error).length,
         results,
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(summary, null, 2),
+          },
+        ],
+      }
+    }
+    else if (name === 'check_name_extensions') {
+      const { name: domainName, extensions, concurrency = 4 } = args as {
+        name: string
+        extensions: string[]
+        concurrency?: number
+      }
+
+      if (!domainName || typeof domainName !== 'string') {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          'Name parameter is required and must be a string',
+        )
+      }
+
+      if (!Array.isArray(extensions) || extensions.length === 0) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          'Extensions parameter is required and must be a non-empty array',
+        )
+      }
+
+      // Generate full domain names
+      const domains = extensions.map(ext => `${domainName}.${ext}`)
+      const results = await checkDomainsParallel(domains, concurrency)
+
+      // Format results grouped by name
+      const summary = {
+        name: domainName,
+        total: results.length,
+        available: results.filter(r => r.available).length,
+        taken: results.filter(r => !r.available && !r.error).length,
+        errors: results.filter(r => r.error).length,
+        results: results,
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(summary, null, 2),
+          },
+        ],
+      }
+    }
+    else if (name === 'check_names_extensions') {
+      const { names, extensions, concurrency = 4 } = args as {
+        names: string[]
+        extensions: string[]
+        concurrency?: number
+      }
+
+      if (!Array.isArray(names) || names.length === 0) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          'Names parameter is required and must be a non-empty array',
+        )
+      }
+
+      if (!Array.isArray(extensions) || extensions.length === 0) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          'Extensions parameter is required and must be a non-empty array',
+        )
+      }
+
+      // Generate all combinations of names and extensions
+      const domains: string[] = []
+      for (const name of names) {
+        for (const ext of extensions) {
+          domains.push(`${name}.${ext}`)
+        }
+      }
+
+      const results = await checkDomainsParallel(domains, concurrency)
+
+      // Group results by name
+      const groupedResults: Record<string, any> = {}
+      for (const name of names) {
+        const nameResults = results.filter(r => r.domain.startsWith(`${name}.`))
+        groupedResults[name] = {
+          total: nameResults.length,
+          available: nameResults.filter(r => r.available).length,
+          taken: nameResults.filter(r => !r.available && !r.error).length,
+          errors: nameResults.filter(r => r.error).length,
+          domains: nameResults,
+        }
+      }
+
+      const summary = {
+        totalNames: names.length,
+        totalExtensions: extensions.length,
+        totalChecks: results.length,
+        availableTotal: results.filter(r => r.available).length,
+        takenTotal: results.filter(r => !r.available && !r.error).length,
+        errorsTotal: results.filter(r => r.error).length,
+        resultsByName: groupedResults,
       }
 
       return {

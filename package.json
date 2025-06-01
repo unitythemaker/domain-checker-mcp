@@ -1,10 +1,10 @@
 {
   "name": "domain-checker-mcp",
   "type": "module",
-  "version": "1.0.0",
-  "description": "MCP server for checking domain availability using RDAP and WHOIS",
+  "version": "0.1.0",
+  "description": "MCP server for checking domain availability using RDAP and WHOIS with support for bulk checking multiple domains in parallel",
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "keywords": [
     "mcp",
     "domain",
@@ -13,6 +13,9 @@
     "whois"
   ],
   "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
   "bin": {
     "domain-checker-mcp": "./dist/index.js"
   },
