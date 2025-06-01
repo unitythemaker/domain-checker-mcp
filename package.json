@@ -13,12 +13,12 @@
     "whois"
   ],
   "main": "dist/index.js",
-  "files": [
-    "dist"
-  ],
   "bin": {
     "domain-checker-mcp": "./dist/index.js"
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",

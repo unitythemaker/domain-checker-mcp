@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import process from 'node:process'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import {
@@ -217,7 +218,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         available: results.filter(r => r.available).length,
         taken: results.filter(r => !r.available && !r.error).length,
         errors: results.filter(r => r.error).length,
-        results: results,
+        results,
       }
 
       return {

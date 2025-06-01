@@ -84,12 +84,12 @@ export async function checkDomain(domain: string): Promise<DomainCheckResult> {
     // Try RDAP first
     return await checkDomainWithRdap(domain)
   }
-  catch (rdapError) {
+  catch {
     // Fallback to whois
     try {
       return await checkDomainWithWhois(domain)
     }
-    catch (whoisError) {
+    catch {
       return {
         domain,
         available: false,
